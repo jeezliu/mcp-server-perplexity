@@ -1,3 +1,5 @@
+name: perplexity-ask
+
 params:
   type: object
   properties:
@@ -8,7 +10,6 @@ params:
     - PERPLEXITY_API_KEY
 
 rest:
-  name: perplexity
   port: 9593
   endpoint: /rest
 
