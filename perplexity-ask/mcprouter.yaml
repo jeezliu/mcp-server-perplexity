@@ -1,0 +1,55 @@
+params:
+  type: object
+  properties:
+    PERPLEXITY_API_KEY:
+      type: string
+      description: Perplexity Sonar API Key
+  required:
+    - PERPLEXITY_API_KEY
+
+rest:
+  name: perplexity
+  port: 9593
+  endpoint: /rest
+
+npx:
+  command:
+    | PERPLEXITY_API_KEY={PERPLEXITY_API_KEY} npx -y server-perplexity-ask
+  config:
+    | {
+        "mcpServers": {
+          "perplexity-ask": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "server-perplexity-ask"
+            ],
+            "env": {
+              "PERPLEXITY_API_KEY": "YOUR_API_KEY_HERE"
+            }
+          }
+        }
+      }
+
+docker:
+  command:
+    | docker run -i --rm -e PERPLEXITY_API_KEY={PERPLEXITY_API_KEY} mcp/perplexity-ask
+  config:
+    | {
+        "mcpServers": {
+          "perplexity-ask": {
+            "command": "docker",
+            "args": [
+              "run",
+              "-i",
+              "--rm",
+              "-e",
+              "PERPLEXITY_API_KEY",
+              "mcp/perplexity-ask"
+            ],
+            "env": {
+              "PERPLEXITY_API_KEY": "YOUR_API_KEY_HERE"
+            }
+          }
+        }
+      }

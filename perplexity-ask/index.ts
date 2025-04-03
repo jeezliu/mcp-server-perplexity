@@ -2,6 +2,7 @@
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { RestServerTransport } from "@chatmcp/sdk/server/rest.js";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -29,7 +30,8 @@ const PERPLEXITY_ASK_TOOL: Tool = {
           properties: {
             role: {
               type: "string",
-              description: "Role of the message (e.g., system, user, assistant)",
+              description:
+                "Role of the message (e.g., system, user, assistant)",
             },
             content: {
               type: "string",
@@ -65,7 +67,8 @@ const PERPLEXITY_RESEARCH_TOOL: Tool = {
           properties: {
             role: {
               type: "string",
-              description: "Role of the message (e.g., system, user, assistant)",
+              description:
+                "Role of the message (e.g., system, user, assistant)",
             },
             content: {
               type: "string",
@@ -101,7 +104,8 @@ const PERPLEXITY_REASON_TOOL: Tool = {
           properties: {
             role: {
               type: "string",
-              description: "Role of the message (e.g., system, user, assistant)",
+              description:
+                "Role of the message (e.g., system, user, assistant)",
             },
             content: {
               type: "string",
@@ -117,12 +121,31 @@ const PERPLEXITY_REASON_TOOL: Tool = {
   },
 };
 
-// Retrieve the Perplexity API key from environment variables
-const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
-if (!PERPLEXITY_API_KEY) {
-  console.error("Error: PERPLEXITY_API_KEY environment variable is required");
-  process.exit(1);
+function parseArgs() {
+  const args: Record<string, string> = {};
+  process.argv.slice(2).forEach((arg) => {
+    if (arg.startsWith("--")) {
+      const [key, value] = arg.slice(2).split("=");
+      args[key] = value;
+    }
+  });
+  return args;
 }
+
+const args = parseArgs();
+const perplexityApiKey =
+  args.perplexity_api_key || process.env.PERPLEXITY_API_KEY || "";
+
+const mode = args.mode || process.env.MODE || "stdio";
+const port = args.port || process.env.PORT || 9593;
+const endpoint = args.endpoint || process.env.ENDPOINT || "/rest";
+
+// Retrieve the Perplexity API key from environment variables
+// const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
+// if (!PERPLEXITY_API_KEY) {
+//   console.error("Error: PERPLEXITY_API_KEY environment variable is required");
+//   process.exit(1);
+// }
 
 /**
  * Performs a chat completion by sending a request to the Perplexity API.
@@ -134,6 +157,7 @@ if (!PERPLEXITY_API_KEY) {
  * @throws Will throw an error if the API request fails.
  */
 async function performChatCompletion(
+  apiKey: string,
   messages: Array<{ role: string; content: string }>,
   model: string = "sonar-pro"
 ): Promise<string> {
@@ -143,7 +167,7 @@ async function performChatCompletion(
     model: model, // Model identifier passed as parameter
     messages: messages,
     // Additional parameters can be added here if required (e.g., max_tokens, temperature, etc.)
-    // See the Sonar API documentation for more details: 
+    // See the Sonar API documentation for more details:
     // https://docs.perplexity.ai/api-reference/chat-completions
   };
 
@@ -153,7 +177,7 @@ async function performChatCompletion(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${PERPLEXITY_API_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify(body),
     });
@@ -179,14 +203,20 @@ async function performChatCompletion(
   try {
     data = await response.json();
   } catch (jsonError) {
-    throw new Error(`Failed to parse JSON response from Perplexity API: ${jsonError}`);
+    throw new Error(
+      `Failed to parse JSON response from Perplexity API: ${jsonError}`
+    );
   }
 
-  // Directly retrieve the main message content from the response 
+  // Directly retrieve the main message content from the response
   let messageContent = data.choices[0].message.content;
 
   // If citations are provided, append them to the message content
-  if (data.citations && Array.isArray(data.citations) && data.citations.length > 0) {
+  if (
+    data.citations &&
+    Array.isArray(data.citations) &&
+    data.citations.length > 0
+  ) {
     messageContent += "\n\nCitations:\n";
     data.citations.forEach((citation: string, index: number) => {
       messageContent += `[${index + 1}] ${citation}\n`;
@@ -214,7 +244,11 @@ const server = new Server(
  * When the client requests a list of tools, this handler returns all available Perplexity tools.
  */
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: [PERPLEXITY_ASK_TOOL, PERPLEXITY_RESEARCH_TOOL, PERPLEXITY_REASON_TOOL],
+  tools: [
+    PERPLEXITY_ASK_TOOL,
+    PERPLEXITY_RESEARCH_TOOL,
+    PERPLEXITY_REASON_TOOL,
+  ],
 }));
 
 /**
@@ -226,6 +260,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
  */
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
+    const auth: any = await request.params?._meta?.auth;
+    const apiKey = perplexityApiKey || auth?.PERPLEXITY_API_KEY;
+
     const { name, arguments: args } = request.params;
     if (!args) {
       throw new Error("No arguments provided");
@@ -233,11 +270,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     switch (name) {
       case "perplexity_ask": {
         if (!Array.isArray(args.messages)) {
-          throw new Error("Invalid arguments for perplexity_ask: 'messages' must be an array");
+          throw new Error(
+            "Invalid arguments for perplexity_ask: 'messages' must be an array"
+          );
         }
         // Invoke the chat completion function with the provided messages
         const messages = args.messages;
-        const result = await performChatCompletion(messages, "sonar-pro");
+        const result = await performChatCompletion(
+          apiKey,
+          messages,
+          "sonar-pro"
+        );
         return {
           content: [{ type: "text", text: result }],
           isError: false,
@@ -245,11 +288,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
       case "perplexity_research": {
         if (!Array.isArray(args.messages)) {
-          throw new Error("Invalid arguments for perplexity_research: 'messages' must be an array");
+          throw new Error(
+            "Invalid arguments for perplexity_research: 'messages' must be an array"
+          );
         }
         // Invoke the chat completion function with the provided messages using the deep research model
         const messages = args.messages;
-        const result = await performChatCompletion(messages, "sonar-deep-research");
+        const result = await performChatCompletion(
+          apiKey,
+          messages,
+          "sonar-deep-research"
+        );
         return {
           content: [{ type: "text", text: result }],
           isError: false,
@@ -257,11 +306,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
       case "perplexity_reason": {
         if (!Array.isArray(args.messages)) {
-          throw new Error("Invalid arguments for perplexity_reason: 'messages' must be an array");
+          throw new Error(
+            "Invalid arguments for perplexity_reason: 'messages' must be an array"
+          );
         }
         // Invoke the chat completion function with the provided messages using the reasoning model
         const messages = args.messages;
-        const result = await performChatCompletion(messages, "sonar-reasoning-pro");
+        const result = await performChatCompletion(
+          apiKey,
+          messages,
+          "sonar-reasoning-pro"
+        );
         return {
           content: [{ type: "text", text: result }],
           isError: false,
@@ -280,7 +335,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       content: [
         {
           type: "text",
-          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+          text: `Error: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
         },
       ],
       isError: true,
@@ -294,9 +351,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
  */
 async function runServer() {
   try {
-    const transport = new StdioServerTransport();
-    await server.connect(transport);
-    console.error("Perplexity MCP Server running on stdio with Ask, Research, and Reason tools");
+    if (mode === "rest") {
+      const transport = new RestServerTransport({
+        port,
+        endpoint,
+      });
+      await server.connect(transport);
+
+      await transport.startServer();
+    } else {
+      const transport = new StdioServerTransport();
+      await server.connect(transport);
+      console.error(
+        "Perplexity MCP Server running on stdio with Ask, Research, and Reason tools"
+      );
+    }
   } catch (error) {
     console.error("Fatal error running server:", error);
     process.exit(1);
