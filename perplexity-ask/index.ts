@@ -2,6 +2,7 @@
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { getParamValue, getAuthValue } from "@chatmcp/sdk/utils/index.js";
 import { RestServerTransport } from "@chatmcp/sdk/server/rest.js";
 import {
   CallToolRequestSchema,
@@ -132,13 +133,11 @@ function parseArgs() {
   return args;
 }
 
-const args = parseArgs();
-const perplexityApiKey =
-  args.perplexity_api_key || process.env.PERPLEXITY_API_KEY || "";
+const perplexityApiKey = getParamValue("perplexity_api_key") || "";
 
-const mode = args.mode || process.env.MODE || "stdio";
-const port = args.port || process.env.PORT || 9593;
-const endpoint = args.endpoint || process.env.ENDPOINT || "/rest";
+const mode = getParamValue("mode") || "stdio";
+const port = getParamValue("port") || 9593;
+const endpoint = getParamValue("endpoint") || "/rest";
 
 // Retrieve the Perplexity API key from environment variables
 // const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
@@ -260,8 +259,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
  */
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
-    const auth: any = await request.params?._meta?.auth;
-    const apiKey = perplexityApiKey || auth?.PERPLEXITY_API_KEY;
+    const apiKey =
+      perplexityApiKey || getAuthValue(request, "PERPLEXITY_API_KEY");
+    if (!apiKey) {
+      throw new Error("PERPLEXITY_API_KEY not set");
+    }
 
     const { name, arguments: args } = request.params;
     if (!args) {
@@ -359,13 +361,15 @@ async function runServer() {
       await server.connect(transport);
 
       await transport.startServer();
-    } else {
-      const transport = new StdioServerTransport();
-      await server.connect(transport);
-      console.error(
-        "Perplexity MCP Server running on stdio with Ask, Research, and Reason tools"
-      );
+
+      return;
     }
+
+    const transport = new StdioServerTransport();
+    await server.connect(transport);
+    console.error(
+      "Perplexity MCP Server running on stdio with Ask, Research, and Reason tools"
+    );
   } catch (error) {
     console.error("Fatal error running server:", error);
     process.exit(1);
