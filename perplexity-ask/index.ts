@@ -15,123 +15,19 @@ import {
  * This tool accepts an array of messages and returns a chat completion response
  * from the Perplexity API, with citations appended to the message if provided.
  */
-const PERPLEXITY_ASK_TOOL: Tool = {
-  name: "perplexity_ask",
+const DAILY_TODO_TOOL: Tool = {
+  name: "get_daily_todo",
   description:
-    "Engages in a conversation using the Sonar API. " +
-    "Accepts an array of messages (each with a role and content) " +
-    "and returns a ask completion response from the Perplexity model.",
+    "获取日常待办事项 ",
   inputSchema: {
     type: "object",
     properties: {
-      messages: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            role: {
-              type: "string",
-              description:
-                "Role of the message (e.g., system, user, assistant)",
-            },
-            content: {
-              type: "string",
-              description: "The content of the message",
-            },
-          },
-          required: ["role", "content"],
-        },
-        description: "Array of conversation messages",
-      },
-    },
-    required: ["messages"],
-  },
-};
-
-/**
- * Definition of the Perplexity Research Tool.
- * This tool performs deep research queries using the Perplexity API.
- */
-const PERPLEXITY_RESEARCH_TOOL: Tool = {
-  name: "perplexity_research",
-  description:
-    "Performs deep research using the Perplexity API. " +
-    "Accepts an array of messages (each with a role and content) " +
-    "and returns a comprehensive research response with citations.",
-  inputSchema: {
-    type: "object",
-    properties: {
-      messages: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            role: {
-              type: "string",
-              description:
-                "Role of the message (e.g., system, user, assistant)",
-            },
-            content: {
-              type: "string",
-              description: "The content of the message",
-            },
-          },
-          required: ["role", "content"],
-        },
-        description: "Array of conversation messages",
-      },
-    },
-    required: ["messages"],
-  },
-};
-
-/**
- * Definition of the Perplexity Reason Tool.
- * This tool performs reasoning queries using the Perplexity API.
- */
-const PERPLEXITY_REASON_TOOL: Tool = {
-  name: "perplexity_reason",
-  description:
-    "Performs reasoning tasks using the Perplexity API. " +
-    "Accepts an array of messages (each with a role and content) " +
-    "and returns a well-reasoned response using the sonar-reasoning-pro model.",
-  inputSchema: {
-    type: "object",
-    properties: {
-      messages: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            role: {
-              type: "string",
-              description:
-                "Role of the message (e.g., system, user, assistant)",
-            },
-            content: {
-              type: "string",
-              description: "The content of the message",
-            },
-          },
-          required: ["role", "content"],
-        },
-        description: "Array of conversation messages",
-      },
-    },
-    required: ["messages"],
-  },
-};
-
-function parseArgs() {
-  const args: Record<string, string> = {};
-  process.argv.slice(2).forEach((arg) => {
-    if (arg.startsWith("--")) {
-      const [key, value] = arg.slice(2).split("=");
-      args[key] = value;
+      erp: {
+        type: "string",
+      }
     }
-  });
-  return args;
-}
+  },
+};
 
 const perplexityApiKey = getParamValue("perplexity_api_key") || "";
 
@@ -161,74 +57,64 @@ async function performChatCompletion(
   model: string = "sonar-pro"
 ): Promise<string> {
   // Construct the API endpoint URL and request body
-  const url = new URL("https://api.perplexity.ai/chat/completions");
-  const body = {
-    model: model, // Model identifier passed as parameter
-    messages: messages,
-    // Additional parameters can be added here if required (e.g., max_tokens, temperature, etc.)
-    // See the Sonar API documentation for more details:
-    // https://docs.perplexity.ai/api-reference/chat-completions
-  };
+  const tasks = [
+    {
+      title: "完成项目需求文档",
+      description: "编写项目需求文档，包括功能需求、非功能需求和用户故事。", 
+      dueDate: "2024-10-05",
+      priority: "高",
+      status: "进行中",
+    },
+    {
+      title: "代码审查",
+      description: "对团队成员提交的代码进行审查，确保代码质量和规范性。",
+      dueDate: "2024-10-06",
+      priority: "中",
+      status: "待办",
+    },
+    {
+      title: "数据库优化",
+      description: "优化数据库查询性能，减少响应时间。",
+      dueDate: "2024-10-07",
+      priority: "低",
+      status: "待办",
+    },
+    {
+      title: "客户反馈处理",
+      description: "处理客户反馈，解决用户遇到的问题。",
+      dueDate: "2024-10-08",
+      priority: "高",
+      status: "待办",
+    },
+    {
+      title: "项目进度报告",
+      description: "编写项目进度报告，汇报项目进展情况。",
+      dueDate: "2024-10-09",
+      priority: "中",
+      status: "待办",
+    },
+  ];
 
-  let response;
-  try {
-    response = await fetch(url.toString(), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(body),
-    });
-  } catch (error) {
-    throw new Error(`Network error while calling Perplexity API: ${error}`);
-  }
+  const formattedTasks = tasks.map((task) =>
+    [
+      `**${task.title}**`,
+      `描述: ${task.description}`,
+      `截止日期: ${task.dueDate}`,
+      `优先级: ${task.priority}`,
+      `状态: ${task.status}`,
+      "---",
+    ].join("\n"),
+  );
+  
+  const todoListText = `待办事项列表:\n\n${formattedTasks.join("\n")}`;
 
-  // Check for non-successful HTTP status
-  if (!response.ok) {
-    let errorText;
-    try {
-      errorText = await response.text();
-    } catch (parseError) {
-      errorText = "Unable to parse error response";
-    }
-    throw new Error(
-      `Perplexity API error: ${response.status} ${response.statusText}\n${errorText}`
-    );
-  }
-
-  // Attempt to parse the JSON response from the API
-  let data;
-  try {
-    data = await response.json();
-  } catch (jsonError) {
-    throw new Error(
-      `Failed to parse JSON response from Perplexity API: ${jsonError}`
-    );
-  }
-
-  // Directly retrieve the main message content from the response
-  let messageContent = data.choices[0].message.content;
-
-  // If citations are provided, append them to the message content
-  if (
-    data.citations &&
-    Array.isArray(data.citations) &&
-    data.citations.length > 0
-  ) {
-    messageContent += "\n\nCitations:\n";
-    data.citations.forEach((citation: string, index: number) => {
-      messageContent += `[${index + 1}] ${citation}\n`;
-    });
-  }
-
-  return messageContent;
+  return todoListText
 }
 
 // Initialize the server with tool metadata and capabilities
 const server = new Server(
   {
-    name: "example-servers/perplexity-ask",
+    name: "example-servers/get-daily-todo",
     version: "0.1.0",
   },
   {
@@ -244,9 +130,7 @@ const server = new Server(
  */
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
-    PERPLEXITY_ASK_TOOL,
-    PERPLEXITY_RESEARCH_TOOL,
-    PERPLEXITY_REASON_TOOL,
+    DAILY_TODO_TOOL
   ],
 }));
 
@@ -270,54 +154,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       throw new Error("No arguments provided");
     }
     switch (name) {
-      case "perplexity_ask": {
-        if (!Array.isArray(args.messages)) {
-          throw new Error(
-            "Invalid arguments for perplexity_ask: 'messages' must be an array"
-          );
-        }
-        // Invoke the chat completion function with the provided messages
-        const messages = args.messages;
+      case "get_daily_todo": {
+        const messages = args.messages as any;
         const result = await performChatCompletion(
           apiKey,
           messages,
           "sonar-pro"
-        );
-        return {
-          content: [{ type: "text", text: result }],
-          isError: false,
-        };
-      }
-      case "perplexity_research": {
-        if (!Array.isArray(args.messages)) {
-          throw new Error(
-            "Invalid arguments for perplexity_research: 'messages' must be an array"
-          );
-        }
-        // Invoke the chat completion function with the provided messages using the deep research model
-        const messages = args.messages;
-        const result = await performChatCompletion(
-          apiKey,
-          messages,
-          "sonar-deep-research"
-        );
-        return {
-          content: [{ type: "text", text: result }],
-          isError: false,
-        };
-      }
-      case "perplexity_reason": {
-        if (!Array.isArray(args.messages)) {
-          throw new Error(
-            "Invalid arguments for perplexity_reason: 'messages' must be an array"
-          );
-        }
-        // Invoke the chat completion function with the provided messages using the reasoning model
-        const messages = args.messages;
-        const result = await performChatCompletion(
-          apiKey,
-          messages,
-          "sonar-reasoning-pro"
         );
         return {
           content: [{ type: "text", text: result }],
