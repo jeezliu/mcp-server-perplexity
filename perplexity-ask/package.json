@@ -1,10 +1,10 @@
 {
-  "name": "server-perplexity-ask",
+  "name": "server-daily-todo",
   "version": "0.1.0",
-  "description": "MCP server for Perplexity API integration",
+  "description": "MCP server for test",
   "keywords": [
     "ai",
-    "perplexity",
+    "test",
     "mcp",
     "modelcontextprotocol"
   ],
@@ -21,7 +21,7 @@
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "mcp-server-perplexity-ask": "dist/index.js"
+    "server-daily-todo": "dist/index.js"
   },
   "files": [
     "dist"

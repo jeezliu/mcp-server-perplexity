@@ -1,13 +1,4 @@
-name: perplexity-ask
-
-params:
-  type: object
-  properties:
-    PERPLEXITY_API_KEY:
-      type: string
-      description: Perplexity Sonar API Key
-  required:
-    - PERPLEXITY_API_KEY
+name: daily-todo
 
 rest:
   port: 9593
@@ -15,42 +6,35 @@ rest:
 
 npx:
   command:
-    | PERPLEXITY_API_KEY={PERPLEXITY_API_KEY} npx -y server-perplexity-ask
+    | npx -y server-daily-todo
   config:
     | {
         "mcpServers": {
-          "perplexity-ask": {
+          "daily-todo": {
             "command": "npx",
             "args": [
               "-y",
-              "server-perplexity-ask"
-            ],
-            "env": {
-              "PERPLEXITY_API_KEY": "YOUR_API_KEY_HERE"
-            }
+              "server-daily-todo"
+            ]
           }
         }
       }
 
 docker:
   command:
-    | docker run -i --rm -e PERPLEXITY_API_KEY={PERPLEXITY_API_KEY} mcp/perplexity-ask
+    | docker run -i --rm -e  mcp/daily-todo
   config:
     | {
         "mcpServers": {
-          "perplexity-ask": {
+          "daily-todo": {
             "command": "docker",
             "args": [
               "run",
               "-i",
               "--rm",
               "-e",
-              "PERPLEXITY_API_KEY",
-              "mcp/perplexity-ask"
-            ],
-            "env": {
-              "PERPLEXITY_API_KEY": "YOUR_API_KEY_HERE"
-            }
+              "mcp/daily-todo"
+            ]
           }
         }
       }
